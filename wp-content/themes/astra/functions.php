@@ -221,9 +221,9 @@ add_action('wp_enqueue_scripts', function() {
 }, 20);
 
 
-add_action('wp_head', function() {
-  echo '<link rel="preload" as="image" href="/wp-content/uploads/hero.webp">';
-});
+// add_action('wp_head', function() {
+//   echo '<link rel="preload" as="image" href="/wp-content/uploads/hero.webp">';
+// });
 
 
 remove_action('wp_head', 'print_emoji_detection_script', 7);
@@ -256,4 +256,81 @@ add_filter('wp_lazy_loading_enabled', '__return_true');
 add_action('wp_head', function() {
   echo '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>';
 });
+
+
+add_action('wp_ajax_submit_contact', 'handle_secure_contact');
+add_action('wp_ajax_nopriv_submit_contact', 'handle_secure_contact');
+
+function handle_secure_contact() {
+    if (!isset($_POST['nonce']) || !check_ajax_referer('contact_nonce', 'nonce', false)) {
+        wp_send_json_error(['message' => 'Invalid request'], 403);
+    }
+
+    $name    = isset($_POST['name']) ? sanitize_text_field($_POST['name']) : '';
+    $email   = isset($_POST['email']) ? sanitize_email($_POST['email']) : '';
+    $message = isset($_POST['message']) ? sanitize_textarea_field($_POST['message']) : '';
+
+    if (empty($name) || empty($email) || empty($message)) {
+        wp_send_json_error(['message' => 'All fields are required'], 400);
+    }
+
+    if (!is_email($email)) {
+        wp_send_json_error(['message' => 'Invalid email address'], 400);
+    }
+
+    wp_send_json_success([
+        'message' => esc_html("Thanks $name, your message was received.")
+    ]);
+}
+
+add_action('wp_enqueue_scripts', function() {
+
+    wp_enqueue_script(
+        'contact-js', 
+        get_stylesheet_directory_uri() . '/js/contact.js', 
+        ['jquery'], 
+        '1.0', 
+        true
+    );
+
+    wp_localize_script('contact-js', 'contactData', [
+        'ajaxUrl' => admin_url('admin-ajax.php'),
+        'nonce'   => wp_create_nonce('contact_nonce')
+    ]);
+
+});
+
+add_filter('script_loader_tag', function($tag, $handle) {
+    if (is_admin()) return $tag;
+
+    $exclude = [
+        'jquery',
+        'jquery-core',
+        'jquery-migrate',
+        'wp-i18n',
+        'wp-api-fetch',
+        'wp-data',
+        'wp-date',
+        'wp-hooks',
+        'moment'
+    ];
+
+    if (in_array($handle, $exclude)) {
+        return $tag; // no defer
+    }
+
+    return str_replace(' src', ' defer src', $tag);
+}, 10, 2);
+
+
+add_action('wp_head', function () {
+    $hero_path = WP_CONTENT_DIR . '/uploads/hero.webp';
+    $hero_url  = content_url('/uploads/hero.webp');
+
+    if (file_exists($hero_path)) {
+        echo '<link rel="preload" as="image" href="' . esc_url($hero_url) . '" fetchpriority="high">';
+    }
+});
+
+
 
