@@ -202,3 +202,58 @@ require_once ASTRA_THEME_DIR . 'inc/core/markup/class-astra-markup.php';
 require_once ASTRA_THEME_DIR . 'inc/core/deprecated/deprecated-filters.php';
 require_once ASTRA_THEME_DIR . 'inc/core/deprecated/deprecated-hooks.php';
 require_once ASTRA_THEME_DIR . 'inc/core/deprecated/deprecated-functions.php';
+
+
+add_filter('script_loader_tag', function($tag, $handle) {
+  if (is_admin()) return $tag;
+
+  $exclude = ['jquery'];
+  if (!in_array($handle, $exclude)) {
+    return str_replace(' src', ' defer src', $tag);
+  }
+  return $tag;
+}, 10, 2);
+
+add_action('wp_enqueue_scripts', function() {
+  if (!is_front_page()) {
+    wp_dequeue_style('elementor-frontend');
+  }
+}, 20);
+
+
+add_action('wp_head', function() {
+  echo '<link rel="preload" as="image" href="/wp-content/uploads/hero.webp">';
+});
+
+
+remove_action('wp_head', 'print_emoji_detection_script', 7);
+remove_action('wp_print_styles', 'print_emoji_styles');
+
+
+wp_dequeue_style('wp-block-library');
+
+add_filter('style_loader_tag', function($html, $handle) {
+  if (strpos($html, 'fonts.googleapis') !== false) {
+    return str_replace("rel='stylesheet'", "rel='stylesheet' media='print' onload=\"this.media='all'\"", $html);
+  }
+  return $html;
+}, 10, 2);
+
+add_action('wp_enqueue_scripts', function() {
+  if (!is_front_page()) {
+    wp_dequeue_style('elementor-frontend');
+    wp_dequeue_script('elementor-frontend');
+  }
+}, 99);
+
+add_action('wp_enqueue_scripts', function() {
+  wp_dequeue_style('wp-block-library');
+  wp_dequeue_style('wc-block-style');
+}, 100);
+
+add_filter('wp_lazy_loading_enabled', '__return_true');
+
+add_action('wp_head', function() {
+  echo '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>';
+});
+
